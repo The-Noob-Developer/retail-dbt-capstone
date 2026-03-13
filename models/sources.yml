@@ -1,0 +1,15 @@
+version : 2
+
+sources:
+  - name: raw
+    database : RETAIL_DB
+    schema : BRONZE
+
+    tables:
+      - name: customer_ext
+      - name: product_ext
+      - name: orders_ext
+      - name: store_ext
+      - name: supplier_ext
+      - name: employee_ext
+      - name: campaign_ext
