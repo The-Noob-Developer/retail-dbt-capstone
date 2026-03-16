@@ -41,7 +41,8 @@ joined as (
         sa.order_date,
         sa.sold_quantity,
         p.stock_quantity,
-        p.cost_price
+        p.cost_price,
+        p.reorder_level
 
     from sales_agg sa
 
@@ -65,13 +66,17 @@ select
     -- beginning inventory
     j.stock_quantity as beginning_inventory,
 
-    -- purchased quantity (approximation)
-    greatest(j.stock_quantity - j.sold_quantity, 0) as purchased_quantity,
+    -- ending inventory after sales
+    (j.stock_quantity - j.sold_quantity) as ending_inventory,
+
+    -- recommended purchase quantity based on reorder level
+    case
+        when (j.stock_quantity - j.sold_quantity) < j.reorder_level
+        then j.reorder_level - (j.stock_quantity - j.sold_quantity)
+        else 0
+    end as purchased_quantity,
 
     j.sold_quantity,
-
-    -- ending inventory
-    (j.stock_quantity - j.sold_quantity) as ending_inventory,
 
     -- inventory value
     (j.stock_quantity - j.sold_quantity) * j.cost_price as inventory_value,
@@ -85,9 +90,19 @@ select
 
     -- supplier contribution %
     100 *
-    greatest(j.stock_quantity - j.sold_quantity, 0) /
-    sum(greatest(j.stock_quantity - j.sold_quantity, 0))
-    over (partition by sup.supplier_key)
+    case
+        when (j.stock_quantity - j.sold_quantity) < j.reorder_level
+        then j.reorder_level - (j.stock_quantity - j.sold_quantity)
+        else 0
+    end
+    /
+    sum(
+        case
+            when (j.stock_quantity - j.sold_quantity) < j.reorder_level
+            then j.reorder_level - (j.stock_quantity - j.sold_quantity)
+            else 0
+        end
+    ) over (partition by sup.supplier_key)
     as supplier_contribution_percentage
 
 from joined j

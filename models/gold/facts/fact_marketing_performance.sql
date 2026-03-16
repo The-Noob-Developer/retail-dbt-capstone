@@ -79,7 +79,6 @@ new_customers as (
         on s.date_key = d.date_key
 
     where d.full_date between c.start_date and c.end_date
-
     group by
         s.campaign_key,
         s.date_key
