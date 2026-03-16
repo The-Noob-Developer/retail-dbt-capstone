@@ -37,7 +37,7 @@ joined as (
     select
         p.product_id,
         p.supplier_id,
-        s.store_id,
+        sa.store_id,
         sa.order_date,
         sa.sold_quantity,
         p.stock_quantity,
@@ -48,9 +48,6 @@ joined as (
 
     left join products p
         on sa.product_id = p.product_id
-
-    left join {{ ref('stg_store') }} s
-        on sa.store_id = s.store_id
 
 )
 
@@ -69,7 +66,7 @@ select
     -- ending inventory after sales
     (j.stock_quantity - j.sold_quantity) as ending_inventory,
 
-    -- recommended purchase quantity based on reorder level
+    -- recommended purchase quantity
     case
         when (j.stock_quantity - j.sold_quantity) < j.reorder_level
         then j.reorder_level - (j.stock_quantity - j.sold_quantity)
@@ -79,7 +76,8 @@ select
     j.sold_quantity,
 
     -- inventory value
-    (j.stock_quantity - j.sold_quantity) * j.cost_price as inventory_value,
+    (j.stock_quantity - j.sold_quantity) * j.cost_price
+        as inventory_value,
 
     -- stock turnover ratio
     j.sold_quantity /
@@ -96,14 +94,16 @@ select
         else 0
     end
     /
-    sum(
-        case
-            when (j.stock_quantity - j.sold_quantity) < j.reorder_level
-            then j.reorder_level - (j.stock_quantity - j.sold_quantity)
-            else 0
-        end
-    ) over (partition by sup.supplier_key)
-    as supplier_contribution_percentage
+    nullif(
+        sum(
+            case
+                when (j.stock_quantity - j.sold_quantity) < j.reorder_level
+                then j.reorder_level - (j.stock_quantity - j.sold_quantity)
+                else 0
+            end
+        ) over (partition by sup.supplier_key),
+        0
+    ) as supplier_contribution_percentage
 
 from joined j
 
